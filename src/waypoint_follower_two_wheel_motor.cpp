@@ -59,7 +59,7 @@ private:
 
 
 	ackermann_msgs::AckermannDriveStamped ackermann_msg_;
-	waypoint_maker::State state_msg_;
+	waypoint_maker::Waypoint state_msg_;
 
 public:
 	WaypointFollower() {
@@ -72,7 +72,7 @@ public:
 
 void initSetup() {
 	ackermann_pub_ = nh_.advertise<ackermann_msgs::AckermannDriveStamped>("ctrl_cmd", 10);
-	state_pub_ = nh_.advertise<waypoint_maker::State>("target_state", 10);
+	state_pub_ = nh_.advertise<waypoint_maker::Waypoint>("target_state", 10);
 
 	odom_sub_ = nh_.subscribe("odom", 10, &WaypointFollower::OdomCallback, this);
    course_sub_ = nh_.subscribe("course", 10, &WaypointFollower::CourseCallback, this);
@@ -252,14 +252,6 @@ void process() {
 			ROS_INFO("CURRENT TARGET INDEX=%d, MISSION_INDEX=%d, DIST=%f", next_mission_index_, next_mission_state_, dist);	
 			if(dist < 2.0 && next_mission_state_ == 1){
 				ROS_INFO("GOAL POINT READCHED. TERMINATING WAYPOINT FOLLOWER.");		
-				is_control_ = false;
-				ackermann_msg_.header.stamp = ros::Time::now();
-            	ackermann_msg_.drive.speed = 0.0;
-            	ackermann_msg_.drive.steering_angle = 0.0;
-                			
-				ackermann_pub_.publish(ackermann_msg_);
-					
-				
 			}
 		}
 		if(is_control_) {
@@ -283,7 +275,11 @@ void process() {
       	is_course_ = false;
 		is_lane_ = false;
 		is_state_change_ = false;
+		
+		state_msg_.waypoint_index = waypoints_[target_index_].waypoint_index;	
+		state_pub_.publish(state_msg_);
 	}
+		
 }
 
 };

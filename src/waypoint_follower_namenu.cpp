@@ -592,43 +592,16 @@ public:
 						if(parking_count_==-1){
 							//ROS_INFO("PARKING SIGN DETECTED. WAITING FOR SIGN.");
 							ackermann_msg_.header.stamp = ros::Time::now();
-              				ackermann_msg_.drive.speed = 0.0;
-                			ackermann_msg_.drive.steering_angle = 0.0;
+              						ackermann_msg_.drive.speed = 0.0;
+                					ackermann_msg_.drive.steering_angle = 0.0;
 
-                			ackermann_pub_.publish(ackermann_msg_);
+                					ackermann_pub_.publish(ackermann_msg_);
 							is_control_ = false;
-							//is_lane_ = false;
+						
 							parking_count_ =0;
 							private_nh_.setParam("/waypoint_loader_node/parking_state", 0);
 							ros::Duration(2.0).sleep();
-//LiDAR한테 PUB
-/*						if(!is_parking_test_&&(parking_test_count_==0)){
-							parking_count_ = 0;
-							parking_test_count_++;
-							ackermann_msg_.header.stamp = ros::Time::now();
-							ackermann_msg_.drive.speed = 0.0;
-							ackermann_msg_.drive.steering_angle = 0.0;
-
-							ackermann_pub_.publish(ackermann_msg_);
-							parking_info();
-							is_control_ = false;
 						}
-					
-						else if(is_parking_test_){	
-							if(!is_parking_area_){
-								lane_number_ += 1;
-								is_lane_ = false;
-								is_parking_test_ = false;
-								break;
-							}
-
-						else if(is_parking_area_){
-							is_control_ = true;
-							private_nh_.setParam("/waypoint_loader_node/parking_state", parking_count_);
-							is_lane_ = false; //0908
-							break;
-							}
-						}*/}
 						break;
 					}	
 				}
@@ -636,11 +609,8 @@ public:
 				else if( dist < 1.5 && next_mission_state_ == 2) {
 
 					if(parking_count_ == 0) {
-						parking_trigger_ = true;
+
 						parking_count_++;
-						is_backward_ = true;
-						////ROS_INFO("CURRENTLY ARRIVED AT PARKING POINT.");
-						//ROS_INFO("STOP FOR 4SECONDS.");
 
 						ackermann_msg_.header.stamp = ros::Time::now();
 						ackermann_msg_.drive.speed = 0.0;

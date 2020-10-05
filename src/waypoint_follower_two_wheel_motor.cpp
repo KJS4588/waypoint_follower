@@ -42,6 +42,9 @@ private:
 	bool is_state_change_;
 	bool is_control_;
 
+	int parking_count_;
+	int detected_number_;
+
 
 	geometry_msgs::PoseStamped cur_pose_;
 
@@ -87,14 +90,17 @@ void initSetup() {
 	private_nh_.getParam("/waypoint_follower_node/third_state_index", third_state_index_);
 
 	ROS_INFO("WAYPOINT FOLLOWER INITIALIZED.");
+
+	parking_count_ = -1;
+	detected_number_ = 1;
    
 	isfirst_steer_ = true;
 	prev_steer_ = 0;
 
 	next_mission_state_ = current_mission_state_ + 1;
-   is_pose_ = false;
-   is_course_ = false;
-   is_lane_ = false;
+	is_pose_ = false;
+	is_course_ = false;
+	is_lane_ = false;
 
 	is_state_change_ = false;
 	is_control_ = false;
@@ -246,13 +252,71 @@ void process() {
 	if(is_pose_ && is_course_ && is_lane_ ) {
 		is_control_ = true;                
 		if(is_state_change_) {
+			private_nh_.getParam("/detected_number", detected_number_);
 			double dist = calcPlaneDist(cur_pose_, waypoints_[next_waypoint_index_].pose);
-			ROS_INFO("CURRENT POSE X=%f, Y=%f", cur_pose_.pose.position.x, cur_pose_.pose.position.y);
-			ROS_INFO("CURRENT TARGET X=%f, Y=%f", waypoints_[next_waypoint_index_].pose.pose.position.x, waypoints_[next_waypoint_index_].pose.pose.position.y);
-			ROS_INFO("CURRENT TARGET INDEX=%d, MISSION_INDEX=%d, DIST=%f", next_mission_index_, next_mission_state_, dist);	
-			if(dist < 2.0 && next_mission_state_ == 1){
-				ROS_INFO("GOAL POINT READCHED. TERMINATING WAYPOINT FOLLOWER.");		
+
+			if(dist<2.0 && next_mission_state_ == 1){
+				//여기서 신호등을 넣어줍니다.
+
+					parking_count_ =0;
+					private_nh_.setParam("/waypoint_loader_node/parking_state", 0);
+
+				}
+
+			else if(dist < 2.0 && next_mission_state_ == 2) {//배달 장소에 도착했습니다.Duration과 관련된 Logic을 추가하세요.
+				while(1){
+					if(parking_count_==0){
+						ackermann_msg_.header.stamp = ros::Time::now();
+              					ackermann_msg_.drive.speed = 0.0;
+                				ackermann_msg_.drive.steering_angle = 0.0;
+
+                				ackermann_pub_.publish(ackermann_msg_);
+						is_control_ = false;
+					
+						parking_count_ =1;
+						private_nh_.setParam("/waypoint_loader_node/parking_state", 1);
+						ros::Duration(2.0).sleep();
+					}
+					break;
+				}	
 			}
+			else if(dist < 2.0 && next_mission_state_ == 3){
+				//ROS_INFO("GOAL POINT READCHED. TERMINATING WAYPOINT FOLLOWER.");
+
+				parking_count_ =-2;
+				private_nh_.setParam("/waypoint_loader_node/parking_state", -2);		
+				
+				is_control_ = false;
+				ackermann_msg_.header.stamp = ros::Time::now();
+				ackermann_msg_.drive.speed = 0.0;
+				ackermann_msg_.drive.steering_angle = 0.0;
+               			
+				ackermann_pub_.publish(ackermann_msg_);
+					
+				ros::shutdown();
+				}
+
+
+			else if(dist < 2.0 && next_mission_state_ == (detected_number_+ 3)){
+				
+				is_control_ = false;
+				ackermann_msg_.header.stamp = ros::Time::now();
+				ackermann_msg_.drive.speed = 0.0;
+				ackermann_msg_.drive.steering_angle = 0.0;
+               			
+				ackermann_pub_.publish(ackermann_msg_);
+					
+				ros::shutdown();
+				}
+
+
+
+
+
+
+
+
+
 		}
 		if(is_control_) {
 			speed = init_speed_;

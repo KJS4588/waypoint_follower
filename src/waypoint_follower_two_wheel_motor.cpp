@@ -197,13 +197,13 @@ double calcSteeringAngle() {
 		 float spin_time;
 		  float stabilizing_time;//for course_retrieve
 
-		  if(angular_velocity > 20){
+		  if(angular_velocity > 45){
 			  stabilizing_time = 0.3;
-			  spin_time = angular_velocity/20;
+			  spin_time = angular_velocity/45;
 
 			  ackermann_msg_.header.stamp = ros::Time::now();
 			  ackermann_msg_.drive.speed = 0;
-			  ackermann_msg_.drive.steering_angle_velocity = 20;
+			  ackermann_msg_.drive.steering_angle_velocity = 45;
 			  
 			  ackermann_pub_.publish(ackermann_msg_);
 
@@ -218,13 +218,13 @@ double calcSteeringAngle() {
 			  ros::Duration stabilizing_time;
 
 		  }
-		  else if (angular_velocity<-20){
+		  else if (angular_velocity< -45){
 			  stabilizing_time = 0.3;
-			  spin_time = angular_velocity/-20;
+			  spin_time = angular_velocity/-45;
 
 			  ackermann_msg_.header.stamp = ros::Time::now();
 			  ackermann_msg_.drive.speed = 0;
-			  ackermann_msg_.drive.steering_angle_velocity = -20;
+			  ackermann_msg_.drive.steering_angle_velocity = -45;
 			  
 			  ackermann_pub_.publish(ackermann_msg_);
 			  

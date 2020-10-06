@@ -39,6 +39,7 @@ private:
 	int fifth_state_index_;
 	int sixth_state_index_;
 	int seventh_state_index_;
+	int eighth_state_index_;
 
 	bool is_pose_;
 	bool is_course_;
@@ -46,8 +47,10 @@ private:
 	bool is_state_change_;
 	bool is_control_;
 
+//for mission
 	int parking_count_;
 	int detected_number_;
+	bool return_sign_;
 
 
 	geometry_msgs::PoseStamped cur_pose_;
@@ -67,6 +70,7 @@ private:
 
 	ackermann_msgs::AckermannDriveStamped ackermann_msg_;
 	waypoint_maker::Waypoint state_msg_;
+	waypoint_maker::State current_state_msg_;//for Vision
 
 public:
 	WaypointFollower() {
@@ -96,11 +100,13 @@ void initSetup() {
 	private_nh_.getParam("/waypoint_follower_node/fifth_state_index", fifth_state_index_);
 	private_nh_.getParam("/waypoint_follower_node/sisth_state_index", sixth_state_index_);
 	private_nh_.getParam("/waypoint_follower_node/seventh_state_index", seventh_state_index_);
+	private_nh_.getParam("/waypoint_follower_node/eighth_state_index", eighth_state_index_);
 
 	ROS_INFO("WAYPOINT FOLLOWER INITIALIZED.");
 
 	parking_count_ = -1;
-	detected_number_ = 2;
+	detected_number_ = -1;
+	return_sign_ =false;
    
 	isfirst_steer_ = true;
 	prev_steer_ = 0;
@@ -116,20 +122,20 @@ void initSetup() {
 
 float calcPlaneDist(const geometry_msgs::PoseStamped pose1, const geometry_msgs::PoseStamped pose2) {
 	float dist = sqrtf(powf(pose1.pose.position.x - pose2.pose.position.x, 2) + powf(pose1.pose.position.y - pose2.pose.position.y, 2));
-   return dist;
+   	return dist;
 }
 
 void OdomCallback(const nav_msgs::Odometry::ConstPtr &odom_msg) {
 	cur_pose_.header = odom_msg->header;
 	cur_pose_.pose.position = odom_msg->pose.pose.position;
-   is_pose_ = true;
+   	is_pose_ = true;
 	ROS_INFO("CURRENT POSE CALLBACK");
 }
 
 
 void CourseCallback(const ackermann_msgs::AckermannDriveStamped::ConstPtr &course_msg) {
 	cur_course_ = course_msg->drive.steering_angle;
-   is_course_ = true;
+   	is_course_ = true;
 }
 
 void LaneCallback(const waypoint_maker::Lane::ConstPtr &lane_msg) {
@@ -141,7 +147,7 @@ void LaneCallback(const waypoint_maker::Lane::ConstPtr &lane_msg) {
 	
 	for(int i=0;i<waypoints_size_;i++) {
 		int index = waypoints_[i].waypoint_index;
-		if(index == first_state_index_ || index == second_state_index_ || index == third_state_index_ || index == fourth_state_index_ || index == fifth_state_index_ || index == sixth_state_index_ || index == seventh_state_index_) {
+		if(index == first_state_index_ || index == second_state_index_ || index == third_state_index_ || index == fourth_state_index_ || index == fifth_state_index_ || index == sixth_state_index_ || index == seventh_state_index_ || index ==eighth_state_index_) {
 			next_mission_state_ = waypoints_[i].mission_state;
 			next_mission_index_ = index;
 			next_waypoint_index_ = i;
@@ -156,7 +162,7 @@ void LaneCallback(const waypoint_maker::Lane::ConstPtr &lane_msg) {
 double calcSteeringAngle() {
 	for(int i=0;i<waypoints_size_;i++) {
    	double dist = calcPlaneDist(cur_pose_, waypoints_[i].pose);
-      if(dist>lookahead_dist_){
+      	if(dist>lookahead_dist_){
 			target_index_=i;
 			waypoint_target_index_ = waypoints_[i].waypoint_index;
 		   ROS_INFO("target_index: %d ld: %f",target_index_,lookahead_dist_);
@@ -257,23 +263,31 @@ double calcSteeringAngle() {
 
 void process() {
 	double speed;
+	double dist = 0;
+	current_state_msg_.dist =-1.0;// for vision stop_lineTODO stop line delete
 	if(is_pose_ && is_course_ && is_lane_ ) {
 		is_control_ = true;                
 		if(is_state_change_) {
 			private_nh_.getParam("/detected_number", detected_number_);
 			double dist = calcPlaneDist(cur_pose_, waypoints_[next_waypoint_index_].pose);
 
-			if(dist<1.5 && next_mission_state_ == 1){
-				//여기서 신호등을 넣어줍니다.
+			current_state_msg_.dist = dist;// for vision stop_line
+			current_state_msg_.current_state = waypoints_[0].mission_state;//for Vision
+			current_state_pub_.publish(current_state_msg_);
+			
+			else if(dist < 1.5 && next_mission_state_ == 1){
+				parking_count_ = 0;
+				private_nh_.setParam("/waypoint_loader_node/parking_state", 0);		
+			}
+			else if(dist < 1.5 && next_mission_state_ == 2){
+				parking_count_ =1;
+				private_nh_.setParam("/waypoint_loader_node/parking_state", 1);		
+			}
 
-					parking_count_ =0;
-					private_nh_.setParam("/waypoint_loader_node/parking_state", 0);
-
-				}
-
-			else if(dist < 1.5 && next_mission_state_ == 2) {//배달 장소에 도착했습니다.Duration과 관련된 Logic을 추가하세요.
+			else if(dist < 1.5 && next_mission_state_ == 3) {//배달 장소에 도착했습니다.Duration과 관련된 Logic을 추가하세요.
 				while(1){
-					if(parking_count_==0){
+					private_nh_.getParam("/return_sign",return_sign_);
+					if(parking_count_==1){
 						ackermann_msg_.header.stamp = ros::Time::now();
               					ackermann_msg_.drive.speed = 0.0;
                 				ackermann_msg_.drive.steering_angle = 0.0;
@@ -281,23 +295,23 @@ void process() {
                 				ackermann_pub_.publish(ackermann_msg_);
 						is_control_ = false;
 					
-						parking_count_ =1;
-						private_nh_.setParam("/waypoint_loader_node/parking_state", 1);
+						parking_count_ =2;
+						private_nh_.setParam("/waypoint_loader_node/parking_state", 2);
 						ros::Duration(2.0).sleep();
 					}
-					break;
+					if(return_sign_)break;
 				}	
 			}
-			else if(dist < 1.5 && next_mission_state_ == 3){
-				//ROS_INFO("GOAL POINT READCHED. TERMINATING WAYPOINT FOLLOWER.");
 
+			else if(dist < 1.5 && next_mission_state_ == 4){
 				parking_count_ =-2;
 				private_nh_.setParam("/waypoint_loader_node/parking_state", -2);		
-				
 				}
 
-
-			else if(dist < 2.25 && next_mission_state_ == (detected_number_+ 4)){
+			else if(detected_number_ ==-1 && waypoints_[0].mission_state == 5){
+				private_nh_.getParam("/detected_number", detected_number_);
+			}
+			else if(dist < 2.25 && next_mission_state_ == (detected_number_+ 5)){
 				
 				is_control_ = false;
 				ackermann_msg_.header.stamp = ros::Time::now();
@@ -327,11 +341,12 @@ void process() {
 			ROS_INFO("IS_CONTROL IS FALSE, NOT PUBLISH.");
 		}		
 		is_pose_ = false;
-      	is_course_ = false;
+      		is_course_ = false;
 		is_lane_ = false;
 		is_state_change_ = false;
 		
-		state_msg_.waypoint_index = waypoints_[target_index_].waypoint_index;	
+		state_msg_.waypoint_index = waypoints_[target_index_].waypoint_index;
+		state_msg_.mission_state = waypoints_[target_index_].mission_state;
 		state_pub_.publish(state_msg_);
 	}
 		

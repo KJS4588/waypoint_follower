@@ -4,13 +4,14 @@
 	<arg name="init_lookahead_distance" default="3.0" />
 
 	<arg name="current_mission_state" default="0" />
-	<arg name="first_state_index" default="75" />
-	<arg name="second_state_index" default="125" />
-	<arg name="third_state_index" default="183" />
-	<arg name="fourth_state_index" default="234" />
-	<arg name="fifth_state_index" default="257" />
-	<arg name="sixth_state_index" default="261" />
-	<arg name="seventh_state_index" default="265" />
+	<arg name="first_state_index" default="65" />
+	<arg name="second_state_index" default="75" />
+	<arg name="third_state_index" default="125" />
+	<arg name="fourth_state_index" default="183" />
+	<arg name="fifth_state_index" default="234" />
+	<arg name="sixth_state_index" default="257" />
+	<arg name="seventh_state_index" default="261" />
+	<arg name="eighth_state_index" default="265" />	
 
 	<node name="waypoint_follower_node" pkg="waypoint_follower" type="waypoint_follower" output="screen">
 		<param name="init_speed" value="$(arg init_speed)" />
@@ -23,6 +24,7 @@
 		<param name="fifth_state_index" value="$(arg fifth_state_index)" />
 		<param name="sixth_state_index" value="$(arg sixth_state_index)" />
 		<param name="seventh_state_index" value="$(arg seventh_state_index)" />
+		<param name="eighth_state_index" value="$(arg eighth_state_index)" />
 	</node>
 
 </launch>

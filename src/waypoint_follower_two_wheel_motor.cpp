@@ -62,6 +62,7 @@ private:
 
 	ros::Publisher ackermann_pub_;
 	ros::Publisher state_pub_;
+	ros::Publisher current_state_pub_;
 
 	ros::Subscriber odom_sub_;
 	ros::Subscriber course_sub_;
@@ -275,7 +276,7 @@ void process() {
 			current_state_msg_.current_state = waypoints_[0].mission_state;//for Vision
 			current_state_pub_.publish(current_state_msg_);
 			
-			else if(dist < 1.5 && next_mission_state_ == 1){
+			if(dist < 1.5 && next_mission_state_ == 1){
 				parking_count_ = 0;
 				private_nh_.setParam("/waypoint_loader_node/parking_state", 0);		
 			}

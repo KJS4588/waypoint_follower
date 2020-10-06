@@ -85,6 +85,7 @@ public:
 void initSetup() {
 	ackermann_pub_ = nh_.advertise<ackermann_msgs::AckermannDriveStamped>("ctrl_cmd", 10);
 	state_pub_ = nh_.advertise<waypoint_maker::Waypoint>("target_state", 10);
+	current_state_pub_ = nh_.advertise<waypoint_maker::State>("current_state", 10);
 
 	odom_sub_ = nh_.subscribe("odom", 10, &WaypointFollower::OdomCallback, this);
    course_sub_ = nh_.subscribe("course", 10, &WaypointFollower::CourseCallback, this);
@@ -130,7 +131,7 @@ void OdomCallback(const nav_msgs::Odometry::ConstPtr &odom_msg) {
 	cur_pose_.header = odom_msg->header;
 	cur_pose_.pose.position = odom_msg->pose.pose.position;
    	is_pose_ = true;
-	ROS_INFO("CURRENT POSE CALLBACK");
+//	ROS_INFO("CURRENT POSE CALLBACK");
 }
 
 
@@ -153,7 +154,7 @@ void LaneCallback(const waypoint_maker::Lane::ConstPtr &lane_msg) {
 			next_mission_index_ = index;
 			next_waypoint_index_ = i;
 			is_state_change_ = true;
-			ROS_INFO("%d STATE CHANGE DETECTED.", next_mission_state_);
+//			ROS_INFO("%d STATE CHANGE DETECTED.", next_mission_state_);
 			return;
 		}	
 	}
@@ -166,7 +167,7 @@ double calcSteeringAngle() {
       	if(dist>lookahead_dist_){
 			target_index_=i;
 			waypoint_target_index_ = waypoints_[i].waypoint_index;
-		   ROS_INFO("target_index: %d ld: %f",target_index_,lookahead_dist_);
+//		   ROS_INFO("target_index: %d ld: %f",target_index_,lookahead_dist_);
 		   break;
       }
 	}
@@ -176,7 +177,7 @@ double calcSteeringAngle() {
         double target_x = waypoints_[target_index_].pose.pose.position.x;
         double target_y = waypoints_[target_index_].pose.pose.position.y;
 
-        ROS_INFO("TARGET X=%f, TARGET Y=%f", target_x, target_y);
+  //      ROS_INFO("TARGET X=%f, TARGET Y=%f", target_x, target_y);
 
         double dx = target_x - cur_pose_.pose.position.x +0.000000001;
         double dy = target_y - cur_pose_.pose.position.y;
@@ -212,9 +213,15 @@ double calcSteeringAngle() {
 		  double time_to_target ;
 		  
 		  time_to_target = (lookahead_dist_ + 0.5) / init_speed_ ;
-		  angular_velocity = -cur_steer / time_to_target ;
+		  angular_velocity = -cur_steer / time_to_target;
+		  
+		  cout << "####################" << endl;
+		  cout << endl << angular_velocity << endl;
+		  cout << endl << "####################" << endl;
+
 //prevent robot's rapid spinning
 //limit angular velocity= abs 45
+
 		 float spin_time;
 		  float stabilizing_time;//for course_retrieve
 		
@@ -228,7 +235,7 @@ double calcSteeringAngle() {
 			  
 			  ackermann_pub_.publish(ackermann_msg_);
 
-			  ros::Duration spin_time;
+			  ros::Duration(spin_time).sleep();
 
 			  ackermann_msg_.header.stamp = ros::Time::now();
 			  ackermann_msg_.drive.speed = init_speed_;
@@ -236,7 +243,7 @@ double calcSteeringAngle() {
 			  
 			  ackermann_pub_.publish(ackermann_msg_);
 			  
-			  ros::Duration stabilizing_time;
+			  ros::Duration(stabilizing_time).sleep();
 
 		  }
 		  else if (angular_velocity< -45){
@@ -249,7 +256,7 @@ double calcSteeringAngle() {
 			  
 			  ackermann_pub_.publish(ackermann_msg_);
 			  
-			  ros::Duration spin_time;
+			  ros::Duration(spin_time).sleep();
 
 			  ackermann_msg_.header.stamp = ros::Time::now();
 			  ackermann_msg_.drive.speed = init_speed_;
@@ -257,7 +264,7 @@ double calcSteeringAngle() {
 			  
 			  ackermann_pub_.publish(ackermann_msg_);
 
-			  ros::Duration stabilizing_time;
+			  ros::Duration(stabilizing_time).sleep();
 		}			  
         return angular_velocity;
 }
@@ -330,7 +337,7 @@ void process() {
 
 			double cur_steer = calcSteeringAngle();
 			
-			ROS_INFO("SPEED=%f, STEER=%f", speed, cur_steer);
+			//ROS_INFO("SPEED=%f, STEER=%f", speed, cur_steer);
 
 			ackermann_msg_.header.stamp = ros::Time::now();
          	ackermann_msg_.drive.speed = speed;
@@ -339,7 +346,7 @@ void process() {
 			ackermann_pub_.publish(ackermann_msg_);
 		}
 		else {
-			ROS_INFO("IS_CONTROL IS FALSE, NOT PUBLISH.");
+			//ROS_INFO("IS_CONTROL IS FALSE, NOT PUBLISH.");
 		}		
 		is_pose_ = false;
       		is_course_ = false;

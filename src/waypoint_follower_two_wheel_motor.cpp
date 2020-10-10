@@ -46,12 +46,15 @@ private:
 	bool is_lane_;
 	bool is_state_change_;
 	bool is_control_;
-	bool is_spin_;//if steering angle over 60(degree) limit driving and spin in place. 
+
+	bool mission_A_;
 
 //for mission
 	int parking_count_;
 	int detected_number_;
 	bool return_sign_;
+
+
 
 
 	geometry_msgs::PoseStamped cur_pose_;
@@ -68,7 +71,8 @@ private:
 	ros::Subscriber odom_sub_;
 	ros::Subscriber course_sub_;
 	ros::Subscriber lane_sub_;
-
+	
+	ros::Time return_time_;	
 
 	ackermann_msgs::AckermannDriveStamped ackermann_msg_;
 	waypoint_maker::Waypoint state_msg_;
@@ -105,12 +109,14 @@ void initSetup() {
 	private_nh_.getParam("/waypoint_follower_node/seventh_state_index", seventh_state_index_);
 	private_nh_.getParam("/waypoint_follower_node/eighth_state_index", eighth_state_index_);
 
+	private_nh_.getParam("/detected_number",detected_number_);
+	private_nh_.getParam("/return_sign",return_sign_);
+	private_nh_.getParam("/mission_A",mission_A_);
+
 	ROS_INFO("WAYPOINT FOLLOWER INITIALIZED.");
 
 	parking_count_ = -1;
-	detected_number_ = -1;
-	return_sign_ =false;
-   
+
 	isfirst_steer_ = true;
 	prev_steer_ = 0;
 
@@ -121,7 +127,6 @@ void initSetup() {
 
 	is_state_change_ = false;
 	is_control_ = false;
-	is_spin_ = false;
 }
 
 float calcPlaneDist(const geometry_msgs::PoseStamped pose1, const geometry_msgs::PoseStamped pose2) {
@@ -236,7 +241,6 @@ void process() {
 	if(is_pose_ && is_course_ && is_lane_ ) {
 		is_control_ = true;                
 		if(is_state_change_) {
-			private_nh_.getParam("/detected_number", detected_number_);
 			double dist = calcPlaneDist(cur_pose_, waypoints_[next_waypoint_index_].pose);
 
 			current_state_msg_.dist = dist;// for vision stop_line
@@ -261,12 +265,35 @@ void process() {
 
                 			ackermann_pub_.publish(ackermann_msg_);
 					is_control_ = false;
-					
-					if(return_sign_){
-						parking_count_ =2;
-						private_nh_.setParam("/waypoint_loader_node/parking_state", 2);
-						ros::Duration(2.0).sleep();//return_sign_ 이 들어오고 2초간 대기 후 출발합니다.
-						break;
+		
+					if(!return_sign_){
+						return_time_ = ros::Time::now();
+						break;	
+					}					
+					else{
+						if((ros::Time::now() - return_time_).toSec() <= 2){
+							ackermann_msg_.header.stamp = ros::Time::now();
+			      				ackermann_msg_.drive.speed = 0.0;
+							ackermann_msg_.drive.steering_angle = 0.0;
+
+							ackermann_pub_.publish(ackermann_msg_);
+							is_control_ = false;
+						}
+						else if(mission_A_&&(ros::Time::now() - return_time).toSec() <= 6){
+							ackermann_msg_.header.stamp = ros::Time::now();
+			      				ackermann_msg_.drive.speed = 0.0;
+							ackermann_msg_.drive.steering_angle = 60;
+
+							ackermann_pub_.publish(ackermann_msg_);
+							is_control_ = false;					
+							break;
+						}
+						else {
+							parking_count_ =2;
+							private_nh_.setParam("/waypoint_loader_node/parking_state", 2);
+							private_nh_.setParam("/return_sign",false);							
+							break;
+						}
 					}
 				}	
 			}
@@ -280,7 +307,6 @@ void process() {
 				private_nh_.getParam("/detected_number", detected_number_);
 			}
 			else if(dist < 2.25 && next_mission_state_ == (detected_number_+ 5)){
-				
 				is_control_ = false;
 				ackermann_msg_.header.stamp = ros::Time::now();
 				ackermann_msg_.drive.speed = 0.0;
@@ -297,66 +323,20 @@ void process() {
 
 			double cur_steer = calcSteeringAngle();
 
-			if(abs(cur_steer) > 60){
-				 float spin_time;
-				  float stabilizing_time;//for course_retrieve
-				
-				  if(cur_steer > 0){
-					  stabilizing_time = 0.3;
-					  spin_time = cur_steer/45;
+			cur_steer = calcAngularVelocity(cur_steer);
+			ackermann_msg_.header.stamp = ros::Time::now();
+	 		ackermann_msg_.drive.speed = speed;
+			ackermann_msg_.drive.steering_angle_velocity = cur_steer;
 
-					  ackermann_msg_.header.stamp = ros::Time::now();
-					  ackermann_msg_.drive.speed = 0;
-					  ackermann_msg_.drive.steering_angle_velocity = -45;
-					  
-					  ackermann_pub_.publish(ackermann_msg_);
-
-					  ros::Duration(spin_time).sleep();
-
-					  ackermann_msg_.header.stamp = ros::Time::now();
-					  ackermann_msg_.drive.speed = init_speed_;
-					  ackermann_msg_.drive.steering_angle_velocity = 0;
-					  
-					  ackermann_pub_.publish(ackermann_msg_);
-					  
-					  ros::Duration(stabilizing_time).sleep();
-				  }
-				  else{
-					  stabilizing_time = 0.3;
-					  spin_time = cur_steer/-45;
-
-					  ackermann_msg_.header.stamp = ros::Time::now();
-					  ackermann_msg_.drive.speed = 0;
-					  ackermann_msg_.drive.steering_angle_velocity = +45;
-					  
-					  ackermann_pub_.publish(ackermann_msg_);
-					  
-					  ros::Duration(spin_time).sleep();
-
-					  ackermann_msg_.header.stamp = ros::Time::now();
-					  ackermann_msg_.drive.speed = init_speed_;
-					  ackermann_msg_.drive.steering_angle_velocity = 0;
-					  
-					  ackermann_pub_.publish(ackermann_msg_);
-
-					  ros::Duration(stabilizing_time).sleep();
-				}	
-			}
-			else{
-				cur_steer = calcAngularVelocity(cur_steer);
-				ackermann_msg_.header.stamp = ros::Time::now();
-		 		ackermann_msg_.drive.speed = speed;
-				ackermann_msg_.drive.steering_angle_velocity = cur_steer;
-
-				ackermann_pub_.publish(ackermann_msg_);
-			}
+			ackermann_pub_.publish(ackermann_msg_);
+			
 		}
 		else {
 			//ROS_INFO("IS_CONTROL IS FALSE, NOT PUBLISH.");
 		}		
 		is_pose_ = false;
       		is_course_ = false;
-		is_lane_ = false;
+		//is_lane_ = false;
 		is_state_change_ = false;
 		
 		state_msg_.waypoint_index = waypoints_[target_index_].waypoint_index;

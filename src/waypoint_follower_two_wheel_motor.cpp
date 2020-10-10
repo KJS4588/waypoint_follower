@@ -88,7 +88,7 @@ public:
 	}
 
 void initSetup() {
-	ackermann_pub_ = nh_.advertise<ackermann_msgs::AckermannDriveStamped>("ctrl_cmd", 10);
+	ackermann_pub_ = nh_.advertise<ackermann_msgs::AckermannDriveStamped>("gps_ackermann", 10);
 	state_pub_ = nh_.advertise<waypoint_maker::Waypoint>("target_state", 10);
 	current_state_pub_ = nh_.advertise<waypoint_maker::State>("current_state", 10);
 
@@ -109,10 +109,14 @@ void initSetup() {
 	private_nh_.getParam("/waypoint_follower_node/seventh_state_index", seventh_state_index_);
 	private_nh_.getParam("/waypoint_follower_node/eighth_state_index", eighth_state_index_);
 
+<<<<<<< HEAD
 	private_nh_.getParam("/detected_number",detected_number_);
 	private_nh_.getParam("/return_sign",return_sign_);
 	private_nh_.getParam("/mission_A",mission_A_);
 
+=======
+	private_nh_.setParam("/return_sign",false);
+>>>>>>> 2a30bc3482363a702d5e5d3e8e532157403428d0
 	ROS_INFO("WAYPOINT FOLLOWER INITIALIZED.");
 
 	parking_count_ = -1;
@@ -226,10 +230,6 @@ double calcAngularVelocity(double steering_angle){
 	time_to_target = (lookahead_dist_ + 0.5) / init_speed_ ;
 	angular_velocity = -steering_angle / time_to_target;
 		  
-	cout << "####################" << endl;
-	cout << endl << angular_velocity << endl;
-	cout << endl << "####################" << endl;
-	
 	return angular_velocity;
 }
 
@@ -242,6 +242,7 @@ void process() {
 		is_control_ = true;                
 		if(is_state_change_) {
 			double dist = calcPlaneDist(cur_pose_, waypoints_[next_waypoint_index_].pose);
+			cout << "DIST : " << dist << endl;
 
 			current_state_msg_.dist = dist;// for vision stop_line
 			current_state_msg_.current_state = waypoints_[0].mission_state;//for Vision
@@ -256,14 +257,14 @@ void process() {
 				private_nh_.setParam("/waypoint_loader_node/parking_state", 1);		
 			}
 
-			else if(dist < 1.5 && next_mission_state_ == 3) {//배달 장소에 도착했습니다.Duration과 관련된 Logic을 추가하세요.
+			else if(dist < 2.5 && next_mission_state_ == 3) {//배달 장소에 도착했습니다.Duration과 관련된 Logic을 추가하세요.
 				while(1){
 					private_nh_.getParam("/return_sign",return_sign_);
 					ackermann_msg_.header.stamp = ros::Time::now();
-              				ackermann_msg_.drive.speed = 0.0;
-                			ackermann_msg_.drive.steering_angle = 0.0;
+					ackermann_msg_.drive.speed = 0.0;
+					ackermann_msg_.drive.steering_angle = 0.0;
 
-                			ackermann_pub_.publish(ackermann_msg_);
+					ackermann_pub_.publish(ackermann_msg_);
 					is_control_ = false;
 		
 					if(!return_sign_){

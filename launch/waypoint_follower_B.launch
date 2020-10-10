@@ -1,6 +1,6 @@
 <launch>
 
-	<arg name="init_speed" default="0.7" />
+	<arg name="init_speed" default="1.0" />
 	<arg name="init_lookahead_distance" default="3.0" />
 	<arg name="detected_number" default="-1" />
 	<arg name="return_sign" default="false" />

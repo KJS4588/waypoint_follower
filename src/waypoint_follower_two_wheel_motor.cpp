@@ -254,21 +254,23 @@ void process() {
 
 			else if(dist < 1.5 && next_mission_state_ == 3) {//배달 장소에 도착했습니다.Duration과 관련된 Logic을 추가하세요.
 				while(1){
-					private_nh_.getParam("/waypoint_follower_node/return_sign",return_sign_);
-              				ackermann_msg_.drive.speed = 0.0;
-                			ackermann_msg_.drive.steering_angle_velocity = 0.0;
-
-                			ackermann_pub_.publish(ackermann_msg_);
-					is_control_ = false;
 					
 					if(!return_sign_){
-						return_time_ = ros::Time::now();
+							
+							private_nh_.getParam("/waypoint_follower_node/return_sign",return_sign_);
+							ackermann_msg_.drive.speed = 0.0;
+							ackermann_msg_.drive.steering_angle_velocity = 0.0;
 
-						cout << "####################" << endl;
-						cout << "return_sign is false" << endl;
-						cout << "####################" << endl;
+							ackermann_pub_.publish(ackermann_msg_);
+							is_control_ = false;
+						
+							return_time_ = ros::Time::now();
 
-						break;	
+							cout << "####################" << endl;
+							cout << "return_sign is false" << endl;
+							cout << "####################" << endl;
+
+							break;	
 					}					
 					else{
 						if((ros::Time::now() - return_time_).toSec() <= 2){
@@ -297,11 +299,11 @@ void process() {
 						else {
 							parking_count_ =2;
 							private_nh_.setParam("/waypoint_loader_node/parking_state", 2);
-
-							private_nh_.setParam("/waypoint_follower_node/return_sign", false);
+							//private_nh_.setParam("/waypoint_follower_node/return_sign", false);
 							cout << "####################" << endl;
 							cout << "after seconds 8" << endl;
 							cout << "####################" << endl;
+							is_control_ = true;
 							break;
 						}
 					}

@@ -54,9 +54,6 @@ private:
 	int detected_number_;
 	bool return_sign_;
 
-
-
-
 	geometry_msgs::PoseStamped cur_pose_;
 
 	double cur_course_;
@@ -283,7 +280,7 @@ void process() {
 							cout << "####################" << endl;
 						}
 						else if(mission_A_&&(ros::Time::now() - return_time_).toSec() <= 8){
-			      				ackermann_msg_.drive.speed = 0.0;
+			      			ackermann_msg_.drive.speed = 0.0;
 							ackermann_msg_.drive.steering_angle_velocity = 60;
 
 							ackermann_pub_.publish(ackermann_msg_);
@@ -297,8 +294,13 @@ void process() {
 						else {
 							parking_count_ =2;
 							private_nh_.setParam("/waypoint_loader_node/parking_state", 2);
-
 							private_nh_.setParam("/waypoint_follower_node/return_sign", false);
+							
+			      			ackermann_msg_.drive.speed = 0.3;
+							ackermann_msg_.drive.steering_angle_velocity = 0.0;
+
+							ackermann_pub_.publish(ackermann_msg_);
+						
 							cout << "####################" << endl;
 							cout << "after seconds 8" << endl;
 							cout << "####################" << endl;

@@ -88,7 +88,7 @@ public:
 	}
 
 void initSetup() {
-	ackermann_pub_ = nh_.advertise<ackermann_msgs::AckermannDriveStamped>("ctrl_cmd", 10);
+	ackermann_pub_ = nh_.advertise<ackermann_msgs::AckermannDriveStamped>("gps_ackermann", 10);
 	state_pub_ = nh_.advertise<waypoint_maker::Waypoint>("target_state", 10);
 	current_state_pub_ = nh_.advertise<waypoint_maker::State>("current_state", 10);
 
@@ -109,9 +109,9 @@ void initSetup() {
 	private_nh_.getParam("/waypoint_follower_node/seventh_state_index", seventh_state_index_);
 	private_nh_.getParam("/waypoint_follower_node/eighth_state_index", eighth_state_index_);
 
-	private_nh_.getParam("/detected_number",detected_number_);
-	private_nh_.getParam("/return_sign",return_sign_);
-	private_nh_.getParam("/mission_A",mission_A_);
+	private_nh_.getParam("/waypoint_follower_node/detected_number",detected_number_);
+	private_nh_.getParam("/waypoint_follower_node/return_sign",return_sign_);
+	private_nh_.getParam("/waypoint_follower_node/mission_A",mission_A_);
 
 	ROS_INFO("WAYPOINT FOLLOWER INITIALIZED.");
 
@@ -226,10 +226,6 @@ double calcAngularVelocity(double steering_angle){
 	time_to_target = (lookahead_dist_ + 0.5) / init_speed_ ;
 	angular_velocity = -steering_angle / time_to_target;
 		  
-	cout << "####################" << endl;
-	cout << endl << angular_velocity << endl;
-	cout << endl << "####################" << endl;
-	
 	return angular_velocity;
 }
 
@@ -246,7 +242,7 @@ void process() {
 			current_state_msg_.dist = dist;// for vision stop_line
 			current_state_msg_.current_state = waypoints_[0].mission_state;//for Vision
 			current_state_pub_.publish(current_state_msg_);
-			
+				
 			if(dist < 1.5 && next_mission_state_ == 1){
 				parking_count_ = 0;
 				private_nh_.setParam("/waypoint_loader_node/parking_state", 0);		
@@ -258,40 +254,54 @@ void process() {
 
 			else if(dist < 1.5 && next_mission_state_ == 3) {//배달 장소에 도착했습니다.Duration과 관련된 Logic을 추가하세요.
 				while(1){
-					private_nh_.getParam("/return_sign",return_sign_);
-					ackermann_msg_.header.stamp = ros::Time::now();
+					private_nh_.getParam("/waypoint_follower_node/return_sign",return_sign_);
               				ackermann_msg_.drive.speed = 0.0;
-                			ackermann_msg_.drive.steering_angle = 0.0;
+                			ackermann_msg_.drive.steering_angle_velocity = 0.0;
 
                 			ackermann_pub_.publish(ackermann_msg_);
 					is_control_ = false;
-		
+					
 					if(!return_sign_){
 						return_time_ = ros::Time::now();
+
+						cout << "####################" << endl;
+						cout << "return_sign is false" << endl;
+						cout << "####################" << endl;
+
 						break;	
 					}					
 					else{
 						if((ros::Time::now() - return_time_).toSec() <= 2){
-							ackermann_msg_.header.stamp = ros::Time::now();
-			      				ackermann_msg_.drive.speed = 0.0;
-							ackermann_msg_.drive.steering_angle = 0.0;
+							ackermann_msg_.drive.speed = 0.0;
+							ackermann_msg_.drive.steering_angle_velocity = 0.0;
 
 							ackermann_pub_.publish(ackermann_msg_);
-							is_control_ = false;
+							is_control_ = false; 
+
+							cout << "####################" << endl;
+							cout << "step for seconds 2" << endl;
+							cout << "####################" << endl;
 						}
-						else if(mission_A_&&(ros::Time::now() - return_time).toSec() <= 6){
-							ackermann_msg_.header.stamp = ros::Time::now();
+						else if(mission_A_&&(ros::Time::now() - return_time_).toSec() <= 8){
 			      				ackermann_msg_.drive.speed = 0.0;
-							ackermann_msg_.drive.steering_angle = 60;
+							ackermann_msg_.drive.steering_angle_velocity = 60;
 
 							ackermann_pub_.publish(ackermann_msg_);
 							is_control_ = false;					
+
+							cout << "####################" << endl;
+							cout << "step for seconds 6" << endl;
+							cout << "####################" << endl;
 							break;
 						}
 						else {
 							parking_count_ =2;
 							private_nh_.setParam("/waypoint_loader_node/parking_state", 2);
-							private_nh_.setParam("/return_sign",false);							
+
+							private_nh_.setParam("/waypoint_follower_node/return_sign", false);
+							cout << "####################" << endl;
+							cout << "after seconds 8" << endl;
+							cout << "####################" << endl;
 							break;
 						}
 					}
@@ -304,39 +314,43 @@ void process() {
 				}
 
 			else if(detected_number_ ==-1 && waypoints_[0].mission_state == 5){
-				private_nh_.getParam("/detected_number", detected_number_);
+				private_nh_.getParam("/waypoint_follower_node/detected_number", detected_number_);
 			}
 			else if(dist < 2.25 && next_mission_state_ == (detected_number_+ 5)){
 				is_control_ = false;
-				ackermann_msg_.header.stamp = ros::Time::now();
 				ackermann_msg_.drive.speed = 0.0;
-				ackermann_msg_.drive.steering_angle = 0.0;
+				ackermann_msg_.drive.steering_angle_velocity = 0.0;
                			
 				ackermann_pub_.publish(ackermann_msg_);
 					
 				ros::shutdown();
-				}
+			}
 		}
 		if(is_control_) {
+			cout << endl;
+			cout << "################" << endl;
+			cout << "SI:BAKDLLLL" << endl;
+			cout << "################" << endl << endl;
+
 			speed = init_speed_;
 			lookahead_dist_ = init_lookahead_dist_;
 
 			double cur_steer = calcSteeringAngle();
 
 			cur_steer = calcAngularVelocity(cur_steer);
-			ackermann_msg_.header.stamp = ros::Time::now();
 	 		ackermann_msg_.drive.speed = speed;
 			ackermann_msg_.drive.steering_angle_velocity = cur_steer;
-
+			
 			ackermann_pub_.publish(ackermann_msg_);
 			
 		}
 		else {
-			//ROS_INFO("IS_CONTROL IS FALSE, NOT PUBLISH.");
+			ROS_INFO("IS_CONTROL IS FALSE, NOT PUBLISH.");
 		}		
 		is_pose_ = false;
-      		is_course_ = false;
-		//is_lane_ = false;
+		is_course_ = false;
+		is_control_ = false;
+		is_lane_ = false;
 		is_state_change_ = false;
 		
 		state_msg_.waypoint_index = waypoints_[target_index_].waypoint_index;

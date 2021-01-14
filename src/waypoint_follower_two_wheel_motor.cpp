@@ -53,7 +53,7 @@ private:
 	int parking_count_;
 	int detected_number_;
 	bool return_sign_;
-
+	bool is_go_;
 
 
 
@@ -105,21 +105,18 @@ void initSetup() {
 	private_nh_.getParam("/waypoint_follower_node/third_state_index", third_state_index_);
 	private_nh_.getParam("/waypoint_follower_node/fourth_state_index", fourth_state_index_);
 	private_nh_.getParam("/waypoint_follower_node/fifth_state_index", fifth_state_index_);
-	private_nh_.getParam("/waypoint_follower_node/sisth_state_index", sixth_state_index_);
+	private_nh_.getParam("/waypoint_follower_node/sixth_state_index", sixth_state_index_);
 	private_nh_.getParam("/waypoint_follower_node/seventh_state_index", seventh_state_index_);
 	private_nh_.getParam("/waypoint_follower_node/eighth_state_index", eighth_state_index_);
 
-	private_nh_.getParam("/waypoint_follower_node/detected_number",detected_number_);
 	private_nh_.getParam("/waypoint_follower_node/return_sign",return_sign_);
 	private_nh_.getParam("/waypoint_follower_node/mission_A",mission_A_);
 
 	ROS_INFO("WAYPOINT FOLLOWER INITIALIZED.");
 
-	parking_count_ = -1;
-
 	isfirst_steer_ = true;
 	prev_steer_ = 0;
-
+	detected_number_ = 4;
 	next_mission_state_ = current_mission_state_ + 1;
 	is_pose_ = false;
 	is_course_ = false;
@@ -127,6 +124,8 @@ void initSetup() {
 
 	is_state_change_ = false;
 	is_control_ = false;
+
+	is_go_ =false;
 }
 
 float calcPlaneDist(const geometry_msgs::PoseStamped pose1, const geometry_msgs::PoseStamped pose2) {
@@ -237,21 +236,44 @@ void process() {
 	if(is_pose_ && is_course_ && is_lane_ ) {
 		is_control_ = true;                
 		if(is_state_change_) {
-			double dist = calcPlaneDist(cur_pose_, waypoints_[next_waypoint_index_].pose);
-
+			dist = calcPlaneDist(cur_pose_, waypoints_[next_waypoint_index_].pose);
+			cout << "##############" << endl;
+			cout <<  waypoints_[next_waypoint_index_].waypoint_index << endl; 
+			cout << "( "<< waypoints_[next_waypoint_index_].pose.pose.position.x << " , " << waypoints_[next_waypoint_index_].pose.pose.position.y << " )" << endl;
+			cout << "#############" << endl;
 			current_state_msg_.dist = dist;// for vision stop_line
-			current_state_msg_.current_state = waypoints_[0].mission_state;//for Vision
-			current_state_pub_.publish(current_state_msg_);
 				
 			if(dist < 1.5 && next_mission_state_ == 1){
 				parking_count_ = 0;
 				private_nh_.setParam("/waypoint_loader_node/parking_state", 0);		
-			}
-			else if(dist < 1.5 && next_mission_state_ == 2){
-				parking_count_ =1;
-				private_nh_.setParam("/waypoint_loader_node/parking_state", 1);		
-			}
+			}	
+			else if(dist < 2.0 && next_mission_state_ == 2){			
+				
+   				if(is_go_){	
+					cout << endl;
+					cout << "################" << endl;
+					cout << "################" << endl;
+					cout << "################" << endl;
+					cout << "################" << endl;
+					cout << "IS_GO RECEIVED" << endl;
+					cout << "################" << endl;
+					cout << "################" << endl;
+					cout << "################" << endl;
+					cout << "################" << endl;
+					cout << endl;
+					parking_count_ = 1;
+					private_nh_.setParam("/waypoint_loader_node/parking_state", 1);		
+					is_control_ = true;
+				} else {
+				
+				ackermann_msg_.drive.speed = 0.0;
+				ackermann_msg_.drive.steering_angle_velocity = 0.0;
 
+				ackermann_pub_.publish(ackermann_msg_);
+				private_nh_.getParam("/waypoint_follower_node/is_go", is_go_);
+				is_control_ = false;
+				}
+			}
 			else if(dist < 1.5 && next_mission_state_ == 3) {//배달 장소에 도착했습니다.Duration과 관련된 Logic을 추가하세요.
 				while(1){
 					
@@ -315,10 +337,18 @@ void process() {
 				private_nh_.setParam("/waypoint_loader_node/parking_state", -2);		
 				}
 
-			else if(detected_number_ ==-1 && waypoints_[0].mission_state == 5){
+			else if(detected_number_ == 4 && waypoints_[0].mission_state == 5) {
 				private_nh_.getParam("/waypoint_follower_node/detected_number", detected_number_);
+
+				cout << "####################" << endl;
+				cout << "!!!!!!!!!!!!!!!!!!!!" << endl;
+				cout << "DETECTED NUMBER : " << detected_number_ << endl;
+				cout << "####################" << endl;
 			}
 			else if(dist < 2.25 && next_mission_state_ == (detected_number_+ 5)){
+				cout << "####################" << endl;
+				cout << "DETECTED NUMBER : " << detected_number_ << endl;
+				cout << "####################" << endl;
 				is_control_ = false;
 				ackermann_msg_.drive.speed = 0.0;
 				ackermann_msg_.drive.steering_angle_velocity = 0.0;
@@ -329,10 +359,6 @@ void process() {
 			}
 		}
 		if(is_control_) {
-			cout << endl;
-			cout << "################" << endl;
-			cout << "SI:BAKDLLLL" << endl;
-			cout << "################" << endl << endl;
 
 			speed = init_speed_;
 			lookahead_dist_ = init_lookahead_dist_;
@@ -358,6 +384,8 @@ void process() {
 		state_msg_.waypoint_index = waypoints_[target_index_].waypoint_index;
 		state_msg_.mission_state = waypoints_[target_index_].mission_state;
 		state_pub_.publish(state_msg_);
+		current_state_msg_.current_state = waypoints_[0].mission_state;//for Vision
+		current_state_pub_.publish(current_state_msg_);
 	}
 		
 }
